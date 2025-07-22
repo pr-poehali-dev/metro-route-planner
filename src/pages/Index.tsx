@@ -8,12 +8,46 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedTrain, setSelectedTrain] = useState(null);
   const [trains, setTrains] = useState([
-    { id: '001', line: 'Красная', station: 'Сокольники', delay: 0, status: 'В пути', passengers: 180 },
-    { id: '002', line: 'Синяя', station: 'Арбатская', delay: 2, status: 'Задержка', passengers: 220 },
-    { id: '003', line: 'Зелёная', station: 'Новослободская', delay: 0, status: 'В депо', passengers: 0 },
-    { id: '004', line: 'Жёлтая', station: 'Комсомольская', delay: 0, status: 'В пути', passengers: 195 },
+    { id: '001', line: 'Красная', station: 'Сокольники', delay: 0, status: 'В пути', passengers: 180, speed: 45, nextStation: 'Красносельская' },
+    { id: '002', line: 'Синяя', station: 'Арбатская', delay: 2, status: 'Задержка', passengers: 220, speed: 0, nextStation: 'Площадь Революции' },
+    { id: '003', line: 'Зелёная', station: 'Новослободская', delay: 0, status: 'В депо', passengers: 0, speed: 0, nextStation: '-' },
+    { id: '004', line: 'Жёлтая', station: 'Комсомольская', delay: 0, status: 'В пути', passengers: 195, speed: 40, nextStation: 'Красные Ворота' },
   ]);
+
+  const [routes, setRoutes] = useState([
+    { id: '1', name: 'Маршрут А-1', from: 'Сокольники', to: 'Юго-Западная', duration: '52 мин', distance: '26.2 км', active: true },
+    { id: '2', name: 'Маршрут С-3', from: 'Речной вокзал', to: 'Бульвар Дмитрия Донского', duration: '48 мин', distance: '24.1 км', active: true },
+    { id: '3', name: 'Маршрут З-2', from: 'Крылатское', to: 'Кузьминки', duration: '45 мин', distance: '22.8 км', active: false },
+  ]);
+
+  const [schedules, setSchedules] = useState([
+    { time: '05:30', train: '001', line: 'Красная', status: 'Выполнен' },
+    { time: '05:35', train: '002', status: 'Задержка' },
+    { time: '05:40', train: '003', line: 'Зелёная', status: 'Ожидание' },
+    { time: '05:45', train: '004', line: 'Жёлтая', status: 'Ожидание' },
+  ]);
+
+  const executeTrainCommand = (trainId, command) => {
+    setTrains(prev => prev.map(train => {
+      if (train.id === trainId) {
+        switch (command) {
+          case 'start':
+            return { ...train, status: 'В пути', speed: 35 };
+          case 'stop':
+            return { ...train, status: 'Остановка', speed: 0 };
+          case 'emergency':
+            return { ...train, status: 'Экстренная остановка', speed: 0, delay: train.delay + 5 };
+          case 'depot':
+            return { ...train, status: 'Возврат в депо', speed: 20, passengers: 0 };
+          default:
+            return train;
+        }
+      }
+      return train;
+    }));
+  };
 
   const lines = [
     { name: 'Красная', trains: 12, active: 10, status: 'Норма' },
@@ -203,19 +237,89 @@ const Index = () => {
                 <div className="mt-4 space-y-2">
                   <h4 className="font-medium text-sm text-muted-foreground mb-3">АКТИВНЫЕ ПОЕЗДА</h4>
                   {trains.slice(0, 3).map((train) => (
-                    <div key={train.id} className="flex items-center justify-between p-2 rounded bg-background/30 border border-primary/20">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full animate-pulse-glow ${
-                          train.status === 'В пути' ? 'bg-green-500' :
-                          train.status === 'Задержка' ? 'bg-red-500' :
-                          'bg-gray-500'
-                        }`}></div>
-                        <span className="text-xs font-mono">#{train.id}</span>
-                        <span className="text-xs">{train.station}</span>
+                    <div key={train.id} className={`p-3 rounded border transition-all cursor-pointer ${
+                      selectedTrain === train.id 
+                        ? 'bg-primary/20 border-primary' 
+                        : 'bg-background/30 border-primary/20 hover:border-primary/40'
+                    }`}
+                    onClick={() => setSelectedTrain(selectedTrain === train.id ? null : train.id)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full animate-pulse-glow ${
+                            train.status === 'В пути' ? 'bg-green-500' :
+                            train.status === 'Задержка' ? 'bg-red-500' :
+                            train.status === 'В депо' ? 'bg-gray-500' :
+                            'bg-yellow-500'
+                          }`}></div>
+                          <span className="text-sm font-mono font-bold">#{train.id}</span>
+                          <span className="text-sm">{train.station}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {train.speed} км/ч
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {train.passengers} чел.
-                      </div>
+                      
+                      {selectedTrain === train.id && (
+                        <div className="space-y-3 animate-fade-in">
+                          <div className="text-xs space-y-1">
+                            <div>Пассажиры: {train.passengers} чел.</div>
+                            <div>Следующая: {train.nextStation}</div>
+                            <div>Линия: {train.line}</div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                executeTrainCommand(train.id, 'start');
+                              }}
+                              className="h-8 text-xs"
+                            >
+                              <Icon name="Play" size={12} className="mr-1" />
+                              Пуск
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                executeTrainCommand(train.id, 'stop');
+                              }}
+                              className="h-8 text-xs"
+                            >
+                              <Icon name="Pause" size={12} className="mr-1" />
+                              Стоп
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                executeTrainCommand(train.id, 'emergency');
+                              }}
+                              className="h-8 text-xs"
+                            >
+                              <Icon name="AlertTriangle" size={12} className="mr-1" />
+                              Экстр.
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="secondary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                executeTrainCommand(train.id, 'depot');
+                              }}
+                              className="h-8 text-xs"
+                            >
+                              <Icon name="Home" size={12} className="mr-1" />
+                              Депо
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -254,34 +358,422 @@ const Index = () => {
           </Card>
         </TabsContent>
 
-        {/* Placeholder tabs for other sections */}
-        {['routes', 'schedule', 'depot', 'control', 'tracking', 'analytics', 'settings'].map((tab) => (
-          <TabsContent key={tab} value={tab}>
-            <Card className="bg-card/50 backdrop-blur min-h-[400px]">
+        {/* Routes Tab */}
+        <TabsContent value="routes" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-2 bg-card/50 backdrop-blur">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Icon name="Settings" size={20} />
-                  {tab === 'routes' && 'Составление и планирование маршрутов'}
-                  {tab === 'schedule' && 'Управление расписаниями движения'}
-                  {tab === 'depot' && 'Управление выездом поездов из депо'}
-                  {tab === 'control' && 'Управление поездами и задержками'}
-                  {tab === 'tracking' && 'Отслеживание всех поездов на линии'}
-                  {tab === 'analytics' && 'Аналитика и отчеты по работе'}
-                  {tab === 'settings' && 'Системные настройки и конфигурация'}
+                  <Icon name="Route" size={20} />
+                  Активные маршруты
                 </CardTitle>
               </CardHeader>
-              <CardContent className="flex items-center justify-center h-60">
-                <div className="text-center">
-                  <Icon name="Construction" size={48} className="text-muted-foreground mb-4" />
-                  <p className="text-lg text-muted-foreground">Раздел в разработке</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Функционал будет добавлен в следующих версиях системы
-                  </p>
+              <CardContent className="space-y-4">
+                {routes.map((route) => (
+                  <div key={route.id} className="p-4 rounded-lg bg-background/50 border">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium">{route.name}</h3>
+                      <Badge variant={route.active ? 'default' : 'secondary'}>
+                        {route.active ? 'Активен' : 'Остановлен'}
+                      </Badge>
+                    </div>
+                    <div className="text-sm text-muted-foreground space-y-1">
+                      <div>Маршрут: {route.from} → {route.to}</div>
+                      <div>Время в пути: {route.duration} • Дистанция: {route.distance}</div>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <Button size="sm" variant="outline">
+                        <Icon name="Edit" size={14} className="mr-1" />
+                        Редактировать
+                      </Button>
+                      <Button size="sm" variant={route.active ? "destructive" : "default"}>
+                        <Icon name={route.active ? "Pause" : "Play"} size={14} className="mr-1" />
+                        {route.active ? "Остановить" : "Запустить"}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-card/50 backdrop-blur">
+              <CardHeader>
+                <CardTitle>Создать маршрут</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Начальная станция</label>
+                  <input className="w-full p-2 rounded border bg-background/50" placeholder="Выберите станцию" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Конечная станция</label>
+                  <input className="w-full p-2 rounded border bg-background/50" placeholder="Выберите станцию" />
+                </div>
+                <Button className="w-full">
+                  <Icon name="Plus" size={16} className="mr-2" />
+                  Создать маршрут
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Schedule Tab */}
+        <TabsContent value="schedule" className="space-y-6">
+          <Card className="bg-card/50 backdrop-blur">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Icon name="Clock" size={20} />
+                Расписание движения поездов
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
+                  <div className="text-2xl font-bold text-primary">127</div>
+                  <div className="text-sm text-muted-foreground">Рейсов сегодня</div>
+                </div>
+                <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <div className="text-2xl font-bold text-green-500">124</div>
+                  <div className="text-sm text-muted-foreground">Выполнено</div>
+                </div>
+                <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                  <div className="text-2xl font-bold text-yellow-500">2</div>
+                  <div className="text-sm text-muted-foreground">Задержки</div>
+                </div>
+                <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <div className="text-2xl font-bold text-blue-500">1</div>
+                  <div className="text-sm text-muted-foreground">Ожидание</div>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                {schedules.map((schedule, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-background/50 border">
+                    <div className="flex items-center gap-4">
+                      <div className="font-mono text-lg">{schedule.time}</div>
+                      <div>
+                        <div className="font-medium">Поезд #{schedule.train}</div>
+                        <div className="text-sm text-muted-foreground">{schedule.line} линия</div>
+                      </div>
+                    </div>
+                    <Badge variant={
+                      schedule.status === 'Выполнен' ? 'default' :
+                      schedule.status === 'Задержка' ? 'destructive' :
+                      'secondary'
+                    }>
+                      {schedule.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Depot Tab */}
+        <TabsContent value="depot" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="bg-card/50 backdrop-blur">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Icon name="Building" size={20} />
+                  Поезда в депо
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {trains.filter(train => train.status === 'В депо').concat([
+                  { id: '005', line: 'Красная', station: 'Депо Красносельское', status: 'В депо', passengers: 0, speed: 0 },
+                  { id: '006', line: 'Синяя', station: 'Депо Измайловское', status: 'В депо', passengers: 0, speed: 0 }
+                ]).map((train) => (
+                  <div key={train.id} className="flex items-center justify-between p-3 rounded-lg bg-background/50 border">
+                    <div className="flex items-center gap-3">
+                      <Icon name="Train" size={16} className="text-muted-foreground" />
+                      <div>
+                        <div className="font-medium">Поезд #{train.id}</div>
+                        <div className="text-sm text-muted-foreground">{train.line} • {train.station}</div>
+                      </div>
+                    </div>
+                    <Button size="sm" onClick={() => executeTrainCommand(train.id, 'start')}>
+                      <Icon name="ArrowRight" size={14} className="mr-1" />
+                      Выпустить
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-card/50 backdrop-blur">
+              <CardHeader>
+                <CardTitle>Статистика депо</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg bg-background/30 border">
+                    <div className="text-2xl font-bold">6</div>
+                    <div className="text-sm text-muted-foreground">В депо</div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-background/30 border">
+                    <div className="text-2xl font-bold">40</div>
+                    <div className="text-sm text-muted-foreground">На линии</div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-background/30 border">
+                    <div className="text-2xl font-bold">2</div>
+                    <div className="text-sm text-muted-foreground">Ремонт</div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-background/30 border">
+                    <div className="text-2xl font-bold">48</div>
+                    <div className="text-sm text-muted-foreground">Всего</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
-        ))}
+          </div>
+        </TabsContent>
+
+        {/* Control Tab */}
+        <TabsContent value="control" className="space-y-6">
+          <Card className="bg-card/50 backdrop-blur">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Icon name="Settings" size={20} />
+                Центральное управление поездами
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="font-medium">Массовые команды</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button variant="outline" className="h-16 flex flex-col gap-1">
+                      <Icon name="Play" size={20} />
+                      <span className="text-xs">Запустить все</span>
+                    </Button>
+                    <Button variant="outline" className="h-16 flex flex-col gap-1">
+                      <Icon name="Pause" size={20} />
+                      <span className="text-xs">Остановить все</span>
+                    </Button>
+                    <Button variant="destructive" className="h-16 flex flex-col gap-1">
+                      <Icon name="AlertTriangle" size={20} />
+                      <span className="text-xs">Экстренная остановка</span>
+                    </Button>
+                    <Button variant="secondary" className="h-16 flex flex-col gap-1">
+                      <Icon name="RotateCcw" size={20} />
+                      <span className="text-xs">Вернуть в депо</span>
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <h3 className="font-medium">Индивидуальное управление</h3>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {trains.map((train) => (
+                      <div key={train.id} className="flex items-center justify-between p-2 rounded bg-background/30 border">
+                        <span className="text-sm">Поезд #{train.id}</span>
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="outline" className="h-8 w-8 p-0"
+                            onClick={() => executeTrainCommand(train.id, 'start')}>
+                            <Icon name="Play" size={12} />
+                          </Button>
+                          <Button size="sm" variant="outline" className="h-8 w-8 p-0"
+                            onClick={() => executeTrainCommand(train.id, 'stop')}>
+                            <Icon name="Pause" size={12} />
+                          </Button>
+                          <Button size="sm" variant="destructive" className="h-8 w-8 p-0"
+                            onClick={() => executeTrainCommand(train.id, 'emergency')}>
+                            <Icon name="AlertTriangle" size={12} />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tracking Tab */}
+        <TabsContent value="tracking" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="lg:col-span-2 bg-card/50 backdrop-blur">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Icon name="MapPin" size={20} />
+                  Отслеживание всех поездов
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {trains.map((train) => (
+                    <div key={train.id} className="p-4 rounded-lg bg-background/50 border">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-3 h-3 rounded-full ${
+                            train.status === 'В пути' ? 'bg-green-500 animate-pulse-glow' :
+                            train.status === 'Задержка' ? 'bg-red-500 animate-pulse-glow' :
+                            'bg-gray-500'
+                          }`}></div>
+                          <div>
+                            <div className="font-medium">Поезд #{train.id}</div>
+                            <div className="text-sm text-muted-foreground">{train.line} линия</div>
+                          </div>
+                        </div>
+                        <Badge variant={
+                          train.status === 'В пути' ? 'default' :
+                          train.status === 'Задержка' ? 'destructive' :
+                          'secondary'
+                        }>
+                          {train.status}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>Текущая станция: {train.station}</div>
+                        <div>Скорость: {train.speed} км/ч</div>
+                        <div>Пассажиры: {train.passengers} чел.</div>
+                        <div>Задержка: {train.delay > 0 ? `+${train.delay} мин` : 'Без задержек'}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-card/50 backdrop-blur">
+              <CardHeader>
+                <CardTitle>Сводка по линиям</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {lines.map((line, index) => (
+                  <div key={index} className="p-3 rounded-lg bg-background/30 border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className={`w-3 h-3 rounded-full ${
+                        line.name === 'Красная' ? 'bg-red-500' :
+                        line.name === 'Синяя' ? 'bg-blue-500' :
+                        line.name === 'Зелёная' ? 'bg-green-500' :
+                        'bg-yellow-500'
+                      }`}></div>
+                      <Badge variant={line.status === 'Норма' ? 'default' : 'destructive'}>
+                        {line.status}
+                      </Badge>
+                    </div>
+                    <div className="text-sm">
+                      <div className="font-medium">{line.name}</div>
+                      <div className="text-muted-foreground">Активно: {line.active}/{line.trains}</div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Analytics Tab */}
+        <TabsContent value="analytics" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <Card className="bg-card/50 backdrop-blur">
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-primary">1.2М</div>
+                <div className="text-sm text-muted-foreground">Пассажиров сегодня</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 backdrop-blur">
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-green-500">97.3%</div>
+                <div className="text-sm text-muted-foreground">Пунктуальность</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 backdrop-blur">
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-blue-500">42.3км</div>
+                <div className="text-sm text-muted-foreground">Средняя скорость</div>
+              </CardContent>
+            </Card>
+            <Card className="bg-card/50 backdrop-blur">
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-yellow-500">2.1мин</div>
+                <div className="text-sm text-muted-foreground">Средняя задержка</div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <Card className="bg-card/50 backdrop-blur">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Icon name="BarChart3" size={20} />
+                Отчеты и аналитика
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-12">
+                <Icon name="TrendingUp" size={64} className="text-muted-foreground mb-4 mx-auto" />
+                <p className="text-lg text-muted-foreground">Графики и диаграммы</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Подключение системы аналитики в следующей версии
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Settings Tab */}
+        <TabsContent value="settings" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="bg-card/50 backdrop-blur">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Icon name="Cog" size={20} />
+                  Системные настройки
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Автоматическое управление</label>
+                    <input type="checkbox" className="rounded" defaultChecked />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Уведомления о задержках</label>
+                    <input type="checkbox" className="rounded" defaultChecked />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Экстренные оповещения</label>
+                    <input type="checkbox" className="rounded" defaultChecked />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Интервал обновления данных</label>
+                  <select className="w-full p-2 rounded border bg-background/50">
+                    <option>1 секунда</option>
+                    <option>5 секунд</option>
+                    <option>10 секунд</option>
+                  </select>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-card/50 backdrop-blur">
+              <CardHeader>
+                <CardTitle>Конфигурация</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button className="w-full" variant="outline">
+                  <Icon name="Download" size={16} className="mr-2" />
+                  Экспорт настроек
+                </Button>
+                <Button className="w-full" variant="outline">
+                  <Icon name="Upload" size={16} className="mr-2" />
+                  Импорт настроек
+                </Button>
+                <Button className="w-full" variant="destructive">
+                  <Icon name="RefreshCw" size={16} className="mr-2" />
+                  Сброс к заводским
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );
